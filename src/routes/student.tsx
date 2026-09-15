@@ -33,10 +33,10 @@ import { TrackDialog } from "@/components/portal/TrackDialog";
 import {
   categories,
   faqs,
-  initialComplaints,
   statusStyles,
   type Complaint,
 } from "@/components/portal/data";
+import { useComplaints } from "@/components/portal/complaintsStore";
 import { useAnnouncements } from "@/components/portal/announcements";
 import campusImage from "@/assets/campus.jpg";
 
@@ -60,7 +60,7 @@ export const Route = createFileRoute("/student")({
 });
 
 function StudentPortal() {
-  const [complaints, setComplaints] = useState<Complaint[]>(initialComplaints);
+  const { complaints, add: addToStore } = useComplaints();
   const [activeNav, setActiveNav] = useState("Home");
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -119,22 +119,19 @@ function StudentPortal() {
   }
 
   function addComplaint(data: NewComplaint) {
-    const next: Complaint = {
-      id: `#SC-2025-0${149 + complaints.length - initialComplaints.length}`,
+    const next = addToStore({
       subject: data.subject,
       category: data.category,
-      date: new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-      status: "Submitted",
       urgency: data.urgency,
       description: data.description,
-    };
-    setComplaints((prev) => [next, ...prev]);
+      attachments: data.attachments,
+      student: data.anonymous ? "Anonymous" : "Rahul Sharma",
+      anonymous: data.anonymous,
+    });
     toast.success(`Complaint ${next.id} submitted`, {
-      description: data.anonymous ? "Filed anonymously." : "You'll get updates here.",
+      description: data.anonymous
+        ? "Filed anonymously. Admin can see it now."
+        : "Sent to the admin dashboard. You'll get updates here.",
     });
   }
 
