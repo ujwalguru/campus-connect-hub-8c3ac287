@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileText, Paperclip, X } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -21,15 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { categories } from "./data";
+import { categories, type Attachment } from "./data";
+import { AttachmentGrid } from "./AttachmentPreview";
 
-export type Attachment = {
-  id: string;
-  name: string;
-  type: string;
-  size: number;
-  url: string;
-};
+export type { Attachment };
 
 export type NewComplaint = {
   subject: string;
@@ -42,12 +37,6 @@ export type NewComplaint = {
 
 const urgencies = ["Low", "Medium", "High", "Critical"];
 const MAX_SIZE = 25 * 1024 * 1024;
-
-function prettySize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export function ComplaintDialog({
   open,
@@ -80,31 +69,38 @@ export function ComplaintDialog({
   };
   const valid = !errors.subject && !errors.category && !errors.description;
 
-  function addFiles(list: FileList | null) {
+  function readAsDataUrl(file: File) {
+    return new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function addFiles(list: FileList | null) {
     if (!list) return;
-    const next: Attachment[] = [];
     for (const file of Array.from(list)) {
       if (file.size > MAX_SIZE) {
         toast.error(`${file.name} is larger than 25 MB`);
         continue;
       }
-      next.push({
-        id: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        url: URL.createObjectURL(file),
-      });
+      const url = await readAsDataUrl(file);
+      setAttachments((prev) => [
+        ...prev,
+        {
+          id: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          url,
+        },
+      ]);
     }
-    if (next.length) setAttachments((prev) => [...prev, ...next]);
   }
 
   function removeFile(id: string) {
-    setAttachments((prev) => {
-      const target = prev.find((a) => a.id === id);
-      if (target) URL.revokeObjectURL(target.url);
-      return prev.filter((a) => a.id !== id);
-    });
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
   }
 
   function handleSubmit() {
@@ -220,57 +216,7 @@ export function ComplaintDialog({
               }}
             />
 
-            {attachments.length > 0 && (
-              <ul className="grid gap-3 sm:grid-cols-2">
-                {attachments.map((a) => (
-                  <li
-                    key={a.id}
-                    className="relative overflow-hidden rounded-xl border border-border bg-muted/40 p-2"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => removeFile(a.id)}
-                      aria-label={`Remove ${a.name}`}
-                      className="absolute right-2 top-2 z-10 flex size-6 items-center justify-center rounded-full bg-background/90 text-foreground shadow hover:bg-accent"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-
-                    {a.type.startsWith("image/") && (
-                      <img
-                        src={a.url}
-                        alt={a.name}
-                        className="h-32 w-full rounded-lg object-cover"
-                      />
-                    )}
-                    {a.type.startsWith("video/") && (
-                      <video src={a.url} controls className="h-32 w-full rounded-lg bg-black" />
-                    )}
-                    {a.type.startsWith("audio/") && (
-                      <audio src={a.url} controls className="mt-6 w-full" />
-                    )}
-                    {a.type === "application/pdf" && (
-                      <embed
-                        src={a.url}
-                        type="application/pdf"
-                        className="h-32 w-full rounded-lg bg-background"
-                      />
-                    )}
-                    {!a.type.startsWith("image/") &&
-                      !a.type.startsWith("video/") &&
-                      !a.type.startsWith("audio/") &&
-                      a.type !== "application/pdf" && (
-                        <div className="flex h-32 items-center justify-center rounded-lg bg-background">
-                          <FileText className="size-8 text-muted-foreground" />
-                        </div>
-                      )}
-
-                    <p className="mt-2 truncate text-xs font-semibold">{a.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{prettySize(a.size)}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <AttachmentGrid attachments={attachments} onRemove={removeFile} />
           </div>
 
           <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
