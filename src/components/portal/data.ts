@@ -10,6 +10,15 @@ import {
 
 export type ComplaintStatus = "Submitted" | "Under Review" | "In Progress" | "Pending" | "Resolved";
 
+export type Attachment = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  /** Data URL used for inline preview (may be empty if too large to store). */
+  url: string;
+};
+
 export type Complaint = {
   id: string;
   subject: string;
@@ -18,6 +27,7 @@ export type Complaint = {
   status: ComplaintStatus;
   urgency: string;
   description: string;
+  attachments?: Attachment[];
 };
 
 export const categories: {
