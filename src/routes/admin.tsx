@@ -14,6 +14,7 @@ import {
   Megaphone,
   Search,
   ShieldCheck,
+  Paperclip,
   Trash2,
   TrendingUp,
   X,
@@ -28,7 +29,6 @@ import {
 } from "@/components/portal/data";
 import {
   activityFeed,
-  adminComplaints,
   departments,
   statusOrder,
   urgencyStyles,
@@ -36,6 +36,8 @@ import {
   type AdminComplaint,
 } from "@/components/portal/adminData";
 import { useAnnouncements } from "@/components/portal/announcements";
+import { useComplaints } from "@/components/portal/complaintsStore";
+import { AttachmentGrid } from "@/components/portal/AttachmentPreview";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -69,7 +71,12 @@ const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
 
 function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("overview");
-  const [list, setList] = useState<AdminComplaint[]>(adminComplaints);
+  const {
+    complaints: list,
+    update: updateStore,
+    bulkStatus: bulkStatusStore,
+    remove: removeStore,
+  } = useComplaints();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ComplaintStatus | "All">("All");
   const [category, setCategory] = useState("All");
@@ -121,17 +128,17 @@ function AdminDashboard() {
   }, [list, query, status, category, urgency, sortBy]);
 
   const update = (id: string, patch: Partial<AdminComplaint>) => {
-    setList((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    updateStore(id, patch);
     setOpen((prev) => (prev && prev.id === id ? { ...prev, ...patch } : prev));
   };
 
   const bulkStatus = (s: ComplaintStatus) => {
-    setList((prev) => prev.map((c) => (selected.includes(c.id) ? { ...c, status: s } : c)));
+    bulkStatusStore(selected, s);
     setSelected([]);
   };
 
   const bulkDelete = () => {
-    setList((prev) => prev.filter((c) => !selected.includes(c.id)));
+    removeStore(selected);
     setSelected([]);
   };
 
@@ -615,8 +622,14 @@ function AdminDashboard() {
                           </td>
                           <td className="px-3 py-3">
                             <p className="font-semibold">{c.subject}</p>
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                               {c.id} · {c.category} · {c.date}
+                              {(c.attachments?.length ?? 0) > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-primary/12 px-1.5 py-0.5 font-bold text-primary">
+                                  <Paperclip className="size-3" />
+                                  {c.attachments?.length}
+                                </span>
+                              )}
                             </p>
                           </td>
                           <td className="px-3 py-3 text-muted-foreground">{c.student}</td>
@@ -724,6 +737,18 @@ function AdminDashboard() {
                 <dd className="font-semibold">{open.date}</dd>
               </div>
             </dl>
+
+            {(open.attachments?.length ?? 0) > 0 && (
+              <>
+                <h3 className="mt-6 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  <Paperclip className="size-3.5" />
+                  Evidence ({open.attachments?.length})
+                </h3>
+                <div className="mt-3">
+                  <AttachmentGrid attachments={open.attachments ?? []} downloadable />
+                </div>
+              </>
+            )}
 
             <h3 className="mt-6 text-xs font-bold uppercase tracking-wide text-muted-foreground">
               Progress
